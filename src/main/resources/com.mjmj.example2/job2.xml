@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:batch="http://www.springframework.org/schema/batch"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+       xsi:schemaLocation="http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch.xsd
+  http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc-4.3.xsd
+  http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+  http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.3.xsd">
+
+    <import resource="classpath:/common-context.xml" />
+
+    <job id="myJob2"
+         xmlns="http://www.springframework.org/schema/batch">
+        <description>
+            <![CDATA[
+            여러 개의 스텝 사용과 JobExecutionContext를 사용해 스텝 간 데이터를 공유하는 예제.
+            myStep1:
+                jobExecutionContext에서 MY.COUNT 값을 불러옴.
+                처음엔 값이 없기 때문에 기본값인 0을 콘솔에 출력하고 1을 jobExecutionContext에 저장.
+            myStep2:
+                jobExecutionContext에서 MY.COUNT 값을 불러옴.
+                1을 콘솔에 출력하고 2을 jobExecutionContext에 저장.
+            myStep3:
+                SPEL을 사용 해서 jobExecutionContext에서 MY.COUNT 값을 불러와 NoOpTasklet의 setter를 통해 넘겨줌.
+                2를 콘솔에 출력하고 3을 jobExecutionContext에 저장.
+            JobExecutionContext는 Map<String , Object>와 같다고 생각하면 된다.
+            공유하고자 하는 객체를 맵에 넣으면 Job 안에 있는 모든 컴포넌트들이 사용 할 수 있다.
+            ]]>
+        </description>
+
+        <step id="myStep1" next="myStep2">
+            <tasklet ref="counterIncrementerTasklet" />
+        </step>
+
+        <step id="myStep2" next="myStep3">
+            <tasklet ref="counterIncrementerTasklet" />
+        </step>
+
+        <step id="myStep3">
+            <tasklet ref="counterIncrementerTasklet2" />
+        </step>
+
+    </job>
+
+    <bean id="counterIncrementerTasklet"
+          class="com.mjmj.example2.CounterIncrementerTasklet"
+          scope="step" />
+
+    <bean id="counterIncrementerTasklet2"
+          class="com.mjmj.example2.CounterIncrementerTasklet"
+          scope="step">
+        <property name="counter"
+                  value="#{jobExecutionContext['MY.COUNTER']}" />
+    </bean>
+
+</beans>

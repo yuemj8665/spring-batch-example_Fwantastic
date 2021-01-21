@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:batch="http://www.springframework.org/schema/batch"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+       xsi:schemaLocation="http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch.xsd
+  http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc-4.3.xsd
+  http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+  http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.3.xsd">
+
+    <import resource="classpath:/common-context.xml" />
+
+    <!-- job을 시작하기 전에 Person 테이블 생성. -->
+    <jdbc:initialize-database
+            data-source="dataSource">
+        <jdbc:script
+                location="classpath:com.mjmj.example3/create-table.sql" />
+    </jdbc:initialize-database>
+
+    <job id="myJob3"
+         xmlns="http://www.springframework.org/schema/batch">
+
+        <step id="myStep1">
+            <tasklet>
+                <chunk reader="csvReader"
+                       processor="personProcessor" writer="personWriter"
+                       commit-interval="10" />
+            </tasklet>
+        </step>
+    </job>
+
+    <bean id="csvReader"
+          class="org.springframework.batch.item.file.FlatFileItemReader">
+        <property name="resource"
+                  value="classpath:com.mjmj.example3/input.csv" />
+
+        <property name="lineMapper">
+            <bean
+                    class="org.springframework.batch.item.file.mapping.DefaultLineMapper">
+                <property name="lineTokenizer">
+                    <!-- 라인을 어떻게 잘라야 하는지 설정해준다. -->
+                    <bean
+                            class="org.springframework.batch.item.file.transform.DelimitedLineTokenizer">
+                        <!-- 기본 구분자인 comma로 필드 값을 구분한다. tokenize 메소드가
+                        FieldSet 객체를 반환 하는데 FieldSet이 names와 구분한 값들을 가지고 있다. -->
+                        <property name="names"
+                                  value="PERSON_ID,FULL_NAME" />
+                    </bean>
+                </property>
+
+                <property name="fieldSetMapper">
+                    <!-- lineTokenizer로부터 넘겨받은 FieldSet 객체를 person 객체로 변환하여 반환한다.
+                                        매핑 할 때 FieldSet의 names 값을 camelCase로 변환 후 같은 이름의 setter로 매칭된다.
+                                        예로 PERSON_IN -> personId, FULL_NAME -> fullName -->
+                    <bean id="fieldSetMapper"
+                          class="org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper"
+                          scope="step">
+
+                        <property name="prototypeBeanName"
+                                  value="person"></property>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+
+        <!-- 첫 번째 라인은 컬럼 헤더이기 때문에 두 번째 라인부터 읽기를 시작한다. -->
+        <property name="linesToSkip" value="1" />
+    </bean>
+
+    <!-- fieldSetMapper가 새로 반환 할 Person 객체. scope이 프로토파입이기 때문에 매번 새로운 객체를 반환한다. -->
+    <bean id="person" class="com.mjmj.example3.Person"
+          scope="prototype" />
+
+    <!-- Person full name 데이터 가공 -->
+    <bean id="personProcessor"
+          class="com.mjmj.example3.PersonProcessor" scope="step" />
+
+    <!-- JDBC writer. Insert나 Update 쿼리를 실행 할 수 있다. -->
+    <bean id="personWriter"
+          class="org.springframework.batch.item.database.JdbcBatchItemWriter"
+          scope="step">
+        <property name="dataSource" ref="dataSource" />
+
+        <property name="sql">
+            <value>
+                <![CDATA[
+                INSERT INTO PERSON
+                (PERSON_ID, FIRST_NAME, LAST_NAME) VALUES
+                (:personId, :firstName, :lastName)
+                ]]>
+            </value>
+        </property>
+
+        <property name="itemSqlParameterSourceProvider">
+            <bean
+                    class="org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider" />
+        </property>
+    </bean>
+
+</beans>
