@@ -6,7 +6,7 @@ import lombok.Setter;
 @Getter @Setter
 public class Person {
 
-    private Long personID;
+    private Long personId;
     private String fullName;
     private String firstName;
     private String lastName;
@@ -14,7 +14,7 @@ public class Person {
     @Override
     public String toString() {
         return "Person{" +
-                "personID=" + personID +
+                "personID=" + personId +
                 ", fullName='" + fullName + '\'' +
                 ", firstName='" + firstName + '\'' +
                 ", lastName='" + lastName + '\'' +

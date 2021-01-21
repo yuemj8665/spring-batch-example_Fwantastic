@@ -32,20 +32,26 @@ public class MyJobTest {
     private JobExecution jobExecution;
 
     @Before
-    public void setUp(){
+    public void setUp() throws Exception {
+        if (!isLaunched.getAndSet(true)) {
+            jobExecution = jobLauncherTestUtils.launchJob();
+        }
+    }
+
+    @Test
+    public void testExitCode() {
         Assert.assertEquals(ExitStatus.COMPLETED.getExitCode(), jobExecution.getExitStatus().getExitCode());
     }
 
     @Test
-    public void testPersonCreated(){
+    public void testPersonsCreated() {
         // jdbcTemplate을 사용 해 Person 테이블의 모든 row를 가져온다.
         List<Person> createdPersons = jdbcTemplate.query("SELECT * FROM PERSON",
                 new BeanPropertyRowMapper<Person>(Person.class));
+
         System.out.println(createdPersons);
 
-        // input.csv 라인 갯수와 Person 테이블의 row갯수가 일치하는지 확인
-        Assert.assertEquals(2,createdPersons.size());
-
-
+        // input.csv 라인 갯수와 Person 테이블 row 갯수가 일치하는지 확인한다.
+        Assert.assertEquals(2, createdPersons.size());
     }
 }
