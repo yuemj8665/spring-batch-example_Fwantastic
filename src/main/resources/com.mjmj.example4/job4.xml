@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:batch="http://www.springframework.org/schema/batch"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+       xsi:schemaLocation="http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch.xsd
+  http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc-4.3.xsd
+  http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+  http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.3.xsd">
+
+    <import resource="classpath:/common-context.xml" />
+
+    <!-- job을 시작하기 전에 Exam 테이블과 테스트 데이터 생성. -->
+    <jdbc:initialize-database
+            data-source="dataSource">
+        <jdbc:script
+                location="classpath:com.mjmj.example4/create-table.sql" />
+    </jdbc:initialize-database>
+
+    <job id="myJob4"
+         xmlns="http://www.springframework.org/schema/batch">
+
+        <description>
+            JDBC로 디비를 읽어서 CSV 파일로 저장하는 예제.
+        </description>
+
+        <step id="myStep1">
+            <tasklet>
+                <chunk reader="examReader"
+                       processor="examProcessor" writer="examWriter"
+                       commit-interval="10" />
+            </tasklet>
+        </step>
+    </job>
+
+    <bean id="examReader"
+          class="org.springframework.batch.item.database.JdbcCursorItemReader">
+        <property name="dataSource" ref="dataSource" />
+        <property name="sql">
+            <value>
+                <![CDATA[
+                SELECT CLASS_NAME, STUDENT_NAME, SCORE
+                FROM EXAM
+                ORDER BY CLASS_NAME, STUDENT_NAME, SCORE
+                ]]>
+            </value>
+        </property>
+        <property name="rowMapper" ref="examRowMapper" />
+    </bean>
+
+    <!-- JDBC reader로 읽은 데이터를 자바 객체로 매핑 해준다. -->
+    <bean id="examRowMapper"
+          class="org.springframework.jdbc.core.BeanPropertyRowMapper"
+          scope="step">
+        <property name="mappedClass"
+                  value="com.mjmj.example4.Exam" />
+    </bean>
+
+
+    <!-- Exam 데이터 가공 -->
+    <bean id="examProcessor"
+          class="com.mjmj.example4.ExamProcessor" scope="step" />
+
+
+    <bean id="examWriter"
+          class="org.springframework.batch.item.file.FlatFileItemWriter"
+          scope="step">
+
+        <!-- Aggregate이 모으다 라는 뜻인데, 한 라인을 어떻게 쓸지 설정한다. -->
+        <!-- 여기선 콤마로 필드를 구분하고 className, studentName, grade 순서대로 값을 쓰라고 설정했다. -->
+        <property name="lineAggregator">
+            <bean
+                    class="org.springframework.batch.item.file.transform.DelimitedLineAggregator">
+                <property name="delimiter" value="," />
+                <property name="fieldExtractor">
+                    <bean
+                            class="org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor">
+                        <property name="names"
+                                  value="className, studentName, grade"></property>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+
+        <!-- 쓸 파일 위치를 지정해준다. 배치가 종료되면 프로젝트 root 레벨 (pom.xml과 같은 위치) 에 output
+            폴더가 생성된다. -->
+        <property name="resource">
+            <bean
+                    class="org.springframework.core.io.FileSystemResource">
+                <constructor-arg name="path"
+                                 value="output/com/mjmj/example4/output.csv" />
+            </bean>
+        </property>
+
+        <!-- 파일이 존재하면 삭제하고 새로 만든다. -->
+        <property name="shouldDeleteIfExists" value="true" />
+    </bean>
+
+</beans>
